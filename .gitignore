@@ -1,0 +1,11 @@
+.idea/
+__pycache__/
+!data/
+data/*
+!data/placeholder.txt
+.cache/
+.ipynb_checkpoints/
+
+*.yml
+!test.yml
+!neuracle_example.yml

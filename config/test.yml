@@ -1,0 +1,17 @@
+subj_info:
+  subjname: TEST
+  montage : ['Pz', 'P3', 'P4', 'P7', 'P8', 'Oz', 'O1', 'O2']
+
+off_config:
+  k_best_channel: -1 # no channel selection
+
+amp_info:
+  amp: neuracle
+  trigger_type: serial
+  samplerate: 1000
+
+exp_config:
+  n_rep: 10
+  bidir: True
+  train_string: AHOV29FKPUZ4
+  test_string: Not to be known should not grieve you; grieve that ye know not men.
