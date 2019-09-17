@@ -126,8 +126,11 @@ class TriggerBox(object):
         '''
         ValidateDevice
         '''
-        handle = serial.Serial(portName, 115200, timeout=0.05)
-        handle.flush()
+        try:
+            handle = serial.Serial(portName, 115200, timeout=0.05)
+            handle.flush()
+        except serial.SerialException:
+            return False
         # send device message
         message = struct.pack('<2BH', *[TriggerBox.deviceID, 4, 0])
         handle.write(message)
