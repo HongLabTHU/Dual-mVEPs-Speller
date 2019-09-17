@@ -14,6 +14,11 @@ Activate the virtual env and install the dependencies from PyPI:
     pip3 install -r requirements.txt
 ```
 
+To test the *[Psychopy](https://www.psychopy.org/)* setup, run *OnlineSystem.py* with the debug config *./tests/test_stimulator.yml*.
+```bash
+    python3 OnlineSystem.py --cfg ./tests/test_stimulator.yml
+```
+
 To reproduce the major results reported in the paper, download the data from this [link](https://drive.google.com/open?id=1KhsIW-D_Rl6g0l3u2FXpzeZfSxK-fmJI), decompress and put it under the data directory. Then
 simply run the notebook *figs_offline.ipynb*.
 

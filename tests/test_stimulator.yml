@@ -1,0 +1,14 @@
+subj_info:
+  subjname: TEST
+
+off_config:
+  k_best_channel: -1 # no channel selection
+
+amp_info:
+  amp: debug
+  samplerate: 1000
+
+exp_config:
+  n_rep: 1
+  bidir: True
+  train_string: AHOV29FKPUZ4

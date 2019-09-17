@@ -8,4 +8,4 @@ data/*
 
 *.yml
 !test.yml
-!neuracle_example.yml
+!test_stimulator.yml
