@@ -37,7 +37,7 @@ def _load_neuracle(data_dir):
     assert np.unique(sfreq).size == 1
     if cfg.amp_info.samplerate != sfreq[0]:
         warnings.warn('Samplerate in config file does not equal to data file record')
-    cfg.amp_info.samplerate = sfreq[0]
+    cfg.amp_info.samplerate = int(sfreq[0])
 
     # read event
     f_evt = pyedflib.EdfReader(f['evt'])

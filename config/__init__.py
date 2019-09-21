@@ -22,7 +22,7 @@ __C.subj_info.montage = ['Pz', 'P3', 'P4', 'P7', 'P8', 'Oz', 'O1', 'O2']
 # set identical to Neuracle online transmission montage (The data doesn't tell you number of channels).
 # subject type
 __C.subj_info.type = 'eeg'
-__C.subj_info.erp_band = (1, 20)
+__C.subj_info.erp_band = (1., 20.)
 
 # amplifier information
 __C.amp_info = AttrDict()
