@@ -277,7 +277,7 @@ def main(args):
         f.write(json.dumps(cfg.off_config))
 
     # training with whole dataset and save model
-    model = train(X, y, select=ind, date=args.date)
+    model = train(X, y, select=ind, date=args.date, C=selected_C)
     model.dump()
     # show plots
     plt.show()
