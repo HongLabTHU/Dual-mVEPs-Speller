@@ -113,18 +113,6 @@ class Model:
         y = self.__cls.decision_function(X)
         return y
 
-    def extract_feature(self, extractor, data):
-        """
-        Deal with channel selection logic in testing phase.
-        :param extractor:
-        :param data:
-        :return:
-        """
-        assert self.mode == 'test'
-        # extract feature
-        trial_feat = extractor(data[self.ch_ind])
-        return trial_feat
-
     @staticmethod
     def raw2epoch(raw_data, timestamps, events):
         """

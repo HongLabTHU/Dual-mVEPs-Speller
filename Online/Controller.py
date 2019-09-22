@@ -200,7 +200,7 @@ class TestingController(Controller):
             return
 
         # process raw to extract features
-        trial_feat = self.model.extract_feature(self.extractor, trial_data)
+        trial_feat = self.extractor(trial_data)
         # raw to epochs
         epochs = Model.raw2epoch(trial_feat, timestamps=timestamps, events=events)
         # making decision
