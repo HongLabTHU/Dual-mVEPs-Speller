@@ -193,16 +193,16 @@ def main(args):
         # parameter search
         C = np.logspace(-4, 2, 10)
         n_components = np.arange(1, (X_train.shape[1] // 2) + 1)
-        mAP = results['mAP']
+        accuracy = np.sum(results['estimate_accu'])
         selected_C = 1.
         selected_n = 1
         best_result = results
         for c, n in itertools.product(C, n_components):
             results = k_fold(X_train, y_train, args, ch_select=ind, C=c, n_components=n)
-            if results['mAP'] > mAP:
+            if np.sum(results['estimate_accu']) > accuracy:
                 selected_C = c
                 selected_n = n
-                mAP = results['mAP']
+                accuracy = np.sum(results['estimate_accu'])
                 best_result = results
         print('Best C: %.4f' % selected_C)
         print('Best n components: %d' % selected_n)
