@@ -60,7 +60,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def train(X_train, y_train, select, **kwargs):
+def _train(X_train, y_train, select, **kwargs):
     """
 
     :param X_train: epochs
@@ -79,7 +79,7 @@ def train(X_train, y_train, select, **kwargs):
     return model
 
 
-def test_model(X, y, model, n_avg):
+def _prediction(X, y, model, n_avg):
     """
 
     :param X: epochs
@@ -95,7 +95,7 @@ def test_model(X, y, model, n_avg):
     return _y
 
 
-def k_fold(X, y, args, ch_select, **kwargs):
+def _k_fold(X, y, args, ch_select, **kwargs):
     """
     k fold validation function
     :param X: epochs
@@ -116,9 +116,9 @@ def k_fold(X, y, args, ch_select, **kwargs):
         X_test = X[ind_test]
         y_test = y[ind_test]
         # train model
-        model = train(X_train, y_train, select=ch_select, **kwargs)
+        model = _train(X_train, y_train, select=ch_select, **kwargs)
         # test model
-        _y = test_model(X_test, y_test, model, 1)
+        _y = _prediction(X_test, y_test, model, 1)
         y_pred.append(_y)
         y_true.append(y_test)
 
@@ -138,6 +138,27 @@ def k_fold(X, y, args, ch_select, **kwargs):
         results = utils.evaluate_binary(y_pred, y_true, if_plot=False)
     results['estimate_accu'] = estimate_accu
     return results
+
+
+def _grid_search(X, y, args, ind, **kwargs):
+    def product_dict(**kwargs):
+        keys = kwargs.keys()
+        vals = kwargs.values()
+        for instance in itertools.product(*vals):
+            yield dict(zip(keys, instance))
+
+    results = _k_fold(X, y, args, ch_select=ind)
+    # parameter search
+    best_accuracy = np.sum(results['estimate_accu'])
+    best_result = results
+    best_params = None
+    for params in product_dict(**kwargs):
+        results = _k_fold(X, y, args, ch_select=ind, **params)
+        if np.sum(results['estimate_accu']) > best_accuracy:
+            best_params = params.copy()
+            best_accuracy = np.sum(results['estimate_accu'])
+            best_result = results
+    return best_params, best_result
 
 
 def main(args):
@@ -188,35 +209,28 @@ def main(args):
     print(ind)
 
     if args.p:
-        # run with default parameter as baseline
-        results = k_fold(X_train, y_train, args, ch_select=ind)
-        # parameter search
-        C = np.logspace(-4, 2, 10)
-        n_components = np.arange(1, (X_train.shape[1] // 2) + 1)
-        accuracy = np.sum(results['estimate_accu'])
-        selected_C = 1.
-        selected_n = 1
-        best_result = results
-        for c, n in itertools.product(C, n_components):
-            results = k_fold(X_train, y_train, args, ch_select=ind, C=c, n_components=n)
-            if np.sum(results['estimate_accu']) > accuracy:
-                selected_C = c
-                selected_n = n
-                accuracy = np.sum(results['estimate_accu'])
-                best_result = results
-        print('Best C: %.4f' % selected_C)
-        print('Best n components: %d' % selected_n)
+        if cfg.subj_info.type == 'eeg':
+            # parameter search
+            C = np.logspace(-4, 2, 10)
+            n_components = range(1, (X_train.shape[1] // 2) + 1)
+            best_params, best_result = _grid_search(X_train, y_train, args, ind, C=C, n_components=n_components)
+        else:
+            raise KeyError('Unsupported experiment type.')
+        for key in best_params:
+            print('Best %s: %.4f' % (key, best_params[key]))
         for i in best_result:
             print('%s: ' % i, best_result[i])
         print('')
     else:
-        selected_C = 1  # default parameters for the classifier.
-        selected_n = 3
-        best_result = k_fold(X_train, y_train, args, ch_select=ind)
+        if cfg.subj_info.type == 'eeg':
+            best_params = {'C': 1., 'n_components': 3}
+        else:
+            raise KeyError('Unsupported experiment type.')
+        best_result = _k_fold(X_train, y_train, args, ch_select=ind)
 
     # train a model with selected parameters
-    model = train(X_train, y_train, select=ind, C=selected_C)
-    y_pred = test_model(X_val, y_val, model, args.n_avg)
+    model = _train(X_train, y_train, select=ind, **best_params)
+    y_pred = _prediction(X_val, y_val, model, args.n_avg)
 
     if cfg.exp_config.bidir:
         fig_roc, fig_cm, fig_pr, param_dict = utils.evaluate_multiclass(y_pred, y_val, if_plot=True)
@@ -241,9 +255,8 @@ def main(args):
         'k-fold': args.k,
         'selected channels': [ch_names[i] + ' ERPs' if i < len(ch_names) else ch_names[i - len(ch_names)] + ' HG' for i
                               in ind],
-        'selected C': selected_C,
-        'selected n_components': int(selected_n)
     }
+    info.update(best_params)
     try:
         os.mkdir(os.path.join(dataset.root_dir, 'logs'))
     except FileExistsError:
@@ -265,7 +278,7 @@ def main(args):
         f.write(json.dumps(cfg.off_config))
 
     # training with whole dataset and save model
-    model = train(X, y, select=ind, date=args.date, C=selected_C, n_components=selected_n)
+    model = _train(X, y, select=ind, date=args.date, **best_params)
     model.dump()
     # show plots
     plt.show()
