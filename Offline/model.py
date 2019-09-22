@@ -113,16 +113,17 @@ class Model:
         y = self.__cls.decision_function(X)
         return y
 
-    def extract_feature(self, extractor, data):
+    def extract_feature(self, extractor, data, channel_selection=True):
         """
         Deal with channel selection logic in testing phase.
         :param extractor:
         :param data:
+        :param channel_selection
         :return:
         """
-        assert self.mode == 'test'
-        # extract feature
-        trial_feat = extractor(data[self.ch_ind])
+        if channel_selection:
+            data = data[self.ch_ind]
+        trial_feat = extractor(data)
         return trial_feat
 
     @staticmethod

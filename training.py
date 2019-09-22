@@ -158,17 +158,10 @@ def main(args):
     ch_names = dataset.montage.copy()
 
     print(data.shape)
-    t = (cfg.off_config.start, cfg.off_config.end, cfg.amp_info.samplerate)
-    erp = extractor(data)
 
-    # cut & sort epochs
-    erp_epochs = utils.cut_epochs(t, erp, dataset.timestamp)
-    erp_epochs = utils.sort_epochs(erp_epochs, dataset.events)
-
-    # detrend and correct baseline (only used in EEG)
-    if cfg.subj_info.type == 'eeg':
-        erp_epochs = signal.detrend(erp_epochs, axis=-1)
-        erp_epochs = utils.apply_baseline(t, erp_epochs)
+    model = Model(subject=cfg.subj_info.subjname)
+    feature = model.extract_feature(extractor, data, channel_selection=False)
+    X = model.raw2epoch(feature, dataset.timestamp, dataset.events)
 
     # get target
     if cfg.exp_config.bidir:
@@ -182,15 +175,6 @@ def main(args):
         os.mkdir(plots_path)
     except FileExistsError:
         pass
-
-    t_orig = (cfg.off_config.start, cfg.off_config.end)
-    t = cfg.off_config.time_window
-
-    X = utils.timewindow(t_orig, t, erp_epochs)
-
-    # down sampling
-    down_ratio = int(cfg.amp_info.samplerate / cfg.off_config.downsamp)
-    X = X[..., ::down_ratio]
 
     # split train/validate set and cross validating on train set
     # randomly split 20%
