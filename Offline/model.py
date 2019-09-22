@@ -2,10 +2,13 @@ import os
 from datetime import datetime
 
 import numpy as np
-from mne.time_frequency import tfr_array_morlet
+from mne.preprocessing.xdawn import _XdawnTransformer
+from mne.decoding import Vectorizer
 from scipy import signal
 import joblib
 from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import make_pipeline
 
 from Offline import utils
 from config import cfg
@@ -74,8 +77,13 @@ class Model:
         else:
             self.data_dict = {}
             C = kwargs.pop('C', 1)
-            self.__cls = LogisticRegression(C=C, class_weight='balanced', solver='liblinear', multi_class='ovr')
-            self._ch_ind = None
+            n_components = kwargs.pop('n_components', 3)
+            self.__cls = make_pipeline(
+                _XdawnTransformer(n_components=n_components),
+                Vectorizer(),
+                StandardScaler(),
+                LogisticRegression(C=C, class_weight='balanced', solver='liblinear', multi_class='ovr')
+            )
 
     @property
     def ch_ind(self):
@@ -94,7 +102,6 @@ class Model:
         :param y: labels (n_epoch, )
         :return:
         """
-        X = X.reshape((X.shape[0], -1))
         self.__cls.fit(X, y)
 
     def decision_function(self, X):
@@ -103,21 +110,8 @@ class Model:
         :param X: epoch data
         :return: predictions
         """
-        X = X.reshape((X.shape[0], -1))
         y = self.__cls.decision_function(X)
         return y
-
-    def extract_feature(self, extractor, data):
-        """
-        Deal with channel selection logic in testing phase.
-        :param extractor:
-        :param data:
-        :return:
-        """
-        assert self.mode == 'test'
-        # extract feature
-        trial_feat = extractor(data[self.ch_ind])
-        return trial_feat
 
     @staticmethod
     def raw2epoch(raw_data, timestamps, events):
@@ -146,87 +140,6 @@ class Model:
         down_ratio = int(cfg.amp_info.samplerate / cfg.off_config.downsamp)
         epochs = epochs[..., ::down_ratio]
         return epochs
-
-    def normalize(self, data, mode, axis=None):
-        """
-        Normalize data
-        :param data: ndarray, features are at the last dimension
-        :param mode
-        :param axis:
-        :return:
-        """
-        data = data.copy()
-
-        if mode.lower() == 'test':
-            mean = self.data_dict['mean']
-            std = self.data_dict['std']
-        else:
-            assert axis is not None
-            mean = data.mean(axis=axis, keepdims=True)
-            std = data.std(axis=axis, keepdims=True)
-            self.data_dict['mean'] = mean
-            self.data_dict['std'] = std
-
-        data -= mean
-        data /= std + 1e-7
-        return data
-
-    @staticmethod
-    def trial2char(score, events, bidir=False):
-        """
-        logic
-        :param score: n-d array last axis the classes, last second axis the epochs per trial
-        :param events: m-d array last axis the epochs per trial
-        :param bidir:
-        :return:
-        """
-        total_evt = score.shape[-2] * 2 if bidir else score.shape[-2]
-
-        if bidir:
-            assert events is not None
-            # sort
-            events = np.sort(events, axis=-1)
-
-            # reshape score to 3d
-            score = score.reshape((-1, *score.shape[-2:]))
-            # select only scores that determine left or right
-            score = score[..., 1:]
-
-            # split row and col and merge last two axis together
-            # (n_epochs, n_epoch_per_trial / 2 * n_cls (3 * 2))
-            row_score = score[..., :total_evt // 4, :].reshape((*score.shape[:-2], -1))
-            col_score = score[..., total_evt // 4:, :].reshape((*score.shape[:-2], -1))
-
-            # argmax of 2*3 matrix
-            row_index = np.argmax(row_score, axis=-1)
-            col_index = np.argmax(col_score, axis=-1)
-
-            # get cls and evt indices
-            evt_row = events[..., :total_evt // 4]
-            evt_col = events[..., total_evt // 4:]
-
-            # corresponding target event order of trials
-            axis_index = np.arange(score.shape[0])
-            evt_row = evt_row[axis_index, row_index[axis_index] // score.shape[-1]]
-            evt_col = evt_col[axis_index, col_index[axis_index] // score.shape[-1]]
-            # predicted cls of trials
-            cls_row = row_index % score.shape[-1] + 1
-            cls_col = col_index % score.shape[-1] + 1
-
-            # left & right 2 cls 2 * epoch_per_trial = total events
-            row_index = utils.cls2target(cls_row, evt_row, total_evt=total_evt)
-            col_index = utils.cls2target(cls_col, evt_col, total_evt=total_evt)
-
-        else:
-            # remove redundant empty axis
-            score = score.squeeze()
-            row_index = np.argmax(score[..., :total_evt // 2], axis=2)
-            col_index = np.argmax(score[..., total_evt // 2:], axis=2)
-        result_index = total_evt * row_index // 2 + col_index
-        # to flat list
-        result_index = result_index.flatten().tolist()
-        # to char
-        return list(map(utils.index2char, result_index))
 
     def dump(self):
         # save coef

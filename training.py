@@ -2,6 +2,7 @@ import argparse
 import os
 import json
 from datetime import datetime
+import itertools
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -73,8 +74,6 @@ def train(X_train, y_train, select, **kwargs):
     model.ch_ind = select
     # select n channels
     train_x = X_train[:, model.ch_ind]
-    # normalize features
-    train_x = model.normalize(train_x, mode='train', axis=(0, 2))
     # fit
     model.fit(train_x, y_train)
     return model
@@ -91,7 +90,6 @@ def test_model(X, y, model, n_avg):
     """
     ind = model.ch_ind
     test_x = X[:, ind]
-    test_x = model.normalize(test_x, mode='test', axis=(0, 2))
     # predict
     _y = utils.pred_ave(model, test_x, y, n=n_avg)
     return _y
@@ -207,25 +205,30 @@ def main(args):
 
     if args.p:
         # run with default parameter as baseline
-        results = k_fold(X_train, y_train, args, if_plot=False, ch_select=ind)
+        results = k_fold(X_train, y_train, args, ch_select=ind)
         # parameter search
-        C = np.logspace(-3, 3, 10)
+        C = np.logspace(-4, 2, 10)
+        n_components = np.arange(1, (X_train.shape[1] // 2) + 1)
         mAP = results['mAP']
         selected_C = 1.
+        selected_n = 1
         best_result = results
-        for c in C:
-            results = k_fold(X_train, y_train, args, if_plot=False, ch_select=ind, C=c)
+        for c, n in itertools.product(C, n_components):
+            results = k_fold(X_train, y_train, args, ch_select=ind, C=c, n_components=n)
             if results['mAP'] > mAP:
                 selected_C = c
+                selected_n = n
                 mAP = results['mAP']
                 best_result = results
         print('Best C: %.4f' % selected_C)
+        print('Best n components: %d' % selected_n)
         for i in best_result:
-            print('%s: %.4f' % (i, best_result[i]))
+            print('%s: ' % i, best_result[i])
         print('')
     else:
-        selected_C = 1
-        best_result = k_fold(X_train, y_train, args, if_plot=False, ch_select=ind)
+        selected_C = 1  # default parameters for the classifier.
+        selected_n = 3
+        best_result = k_fold(X_train, y_train, args, ch_select=ind)
 
     # train a model with selected parameters
     model = train(X_train, y_train, select=ind, C=selected_C)
@@ -254,7 +257,8 @@ def main(args):
         'k-fold': args.k,
         'selected channels': [ch_names[i] + ' ERPs' if i < len(ch_names) else ch_names[i - len(ch_names)] + ' HG' for i
                               in ind],
-        'selected C': selected_C
+        'selected C': selected_C,
+        'selected n_components': int(selected_n)
     }
     try:
         os.mkdir(os.path.join(dataset.root_dir, 'logs'))
@@ -277,7 +281,7 @@ def main(args):
         f.write(json.dumps(cfg.off_config))
 
     # training with whole dataset and save model
-    model = train(X, y, select=ind, date=args.date, C=selected_C)
+    model = train(X, y, select=ind, date=args.date, C=selected_C, n_components=selected_n)
     model.dump()
     # show plots
     plt.show()
