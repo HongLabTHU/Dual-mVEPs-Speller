@@ -26,6 +26,14 @@ If you would like to run your own online experiments, you could either use *Neus
 with the interface provided by us or implement your own interface (including online data transmission and offline data loader) 
 following the instructions in *Online/README.md*. 
 
+### N200 Interface
+#### The dual-directional speller
+<img src="./Assets/dual-directional.gif" width="400" height="400" />  
+
+#### The uni-directional speller
+<img src="./Assets/uni-directional.gif" width="400" height="400" />  
+
+
 ### Experiment setup
 1. Setup the hardware.
 2. Write a config file for your subject referring to the examples in *config/*.
