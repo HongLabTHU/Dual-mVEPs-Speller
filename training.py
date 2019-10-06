@@ -54,7 +54,7 @@ def parse_args():
         '--parameter-search',
         '-p',
         dest='p',
-        help='set to disable parameter search',
+        help='set to enable parameter search',
         action='store_true'
     )
     return parser.parse_args()
