@@ -45,7 +45,8 @@ class Stimulator:
                                  color=bg_color,
                                  screen=screen_index,
                                  allowGUI=False,
-                                 winType='pyglet')
+                                 winType='pyglet',
+                                 gammaErrorPolicy='warn')
         # trigger unit
         self._trigger = trigger_unit
         # config trigger unit
