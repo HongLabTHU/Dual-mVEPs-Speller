@@ -1,7 +1,7 @@
 ## Dual-directional visual motion based BCI Speller
 Code for uni- and dual-directional visual motion based BCI spellers, as described in the original paper: 
 [*Doubling the speed of N200 speller by dual-directional motion Encoding*](). 
-Note that the original code is in the release [Version 0.1.1](../../releases/tag/0.1.1) 
+Note that the original code is in the release [Version 0.1.1](../../releases/tag/0.1.1). 
 
 ### Quickstart
 This repository requires python3.6 and Windows platform. If you have [Conda](https://anaconda.org):
