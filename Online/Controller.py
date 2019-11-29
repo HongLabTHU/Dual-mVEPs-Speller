@@ -1,6 +1,7 @@
 import os
 from datetime import datetime
 import json
+import pickle
 
 import numpy as np
 
@@ -34,7 +35,6 @@ class Controller:
         self._fio, self._path = set_event_fio()
         self._q_stim = q_stim
         self._q_result = q_result
-        self.total_trial_cnt = 0
 
     def _write_stim_order(self, stim_order):
         for stim in stim_order:
@@ -51,10 +51,9 @@ class Controller:
         try:
             events = self._q_stim.get(block=False)
         except queue.Empty:
-            return None
+            return None  # Queue empty, continue.
 
         self._write_stim_order(events)
-        self.total_trial_cnt += 1
         return events
 
     def write_exp_log(self):
@@ -111,11 +110,11 @@ class TestingController(Controller):
         if os.path.isfile(self._log_path):
             raise FileExistsError("Record file already exists.")
 
-        # error log file
-        self._online_err_log = os.path.join(self._path, 'error.log')
+        # online data dump file
+        self._online_dump_pkl = os.path.join(self._path, 'dump.pkl')
         # check if exist
-        if os.path.isfile(self._online_err_log):
-            raise FileExistsError("Error log already exists.")
+        if os.path.isfile(self._online_dump_pkl):
+            raise FileExistsError("Dump file already exists.")
 
         # cnt variables
         self.trial_cnt = 0
@@ -157,11 +156,6 @@ class TestingController(Controller):
             return
         self.trial_cnt += 1
 
-        # process events, list to 2d array
-        events = np.array([events])
-        if cfg.exp_config.bidir:
-            events = events[..., 0]
-
         timestamps, trial_data = self.data_client.get_trial_data()
 
         print(trial_data.shape, len(timestamps))
@@ -172,41 +166,34 @@ class TestingController(Controller):
         # collected by the amplifier due to excessive delay.
         # At this time, the online system would decide to abandon those trials and redo them.
         # We do not consider those trials when calculating ITR.
-        if not timestamps:
-            # write error log
-            with open(self._online_err_log, 'a') as f:
-                f.write('Do not receive any timestamps. Err Trial index: %d\n' % self.total_trial_cnt)
-            self.trial_cnt -= 1
-            self._q_result.put(-1)
-            print('No timestamps. Trigger box disconnected!')
+        # Here, we judge if we receive a complete data package. If not, return and continue next trial.
+        try:
+            self._data_check(events, timestamps, trial_data)
+        except ValueError:
+            self._dump_raw_data(err_flag=True,
+                                events=events,
+                                timestamps=timestamps,
+                                trial_data=trial_data)
+            # dump an empty decision object
+            self._dump_decisions([], [])
+            # Incomplete data, return and continue.
             return
-
-        if timestamps[-1] + cfg.amp_info.samplerate * cfg.off_config.end > trial_data.shape[1]:
-            # write error log
-            with open(self._online_err_log, 'a') as f:
-                f.write('Wrong data length. Err Trial index: %d\n' % self.total_trial_cnt)
-            self.trial_cnt -= 1
-            self._q_result.put(-1)
-            print('Wrong data length')
-            return
-
-        if (len(timestamps) != 12 and not cfg.exp_config.bidir) or (len(timestamps) != 6 and cfg.exp_config.bidir):
-            # write error log
-            with open(self._online_err_log, 'a') as f:
-                f.write('Wrong time stamp length. Err Trial index: %d\n' % self.total_trial_cnt)
-            self.trial_cnt -= 1
-            self._q_result.put(-1)
-            print('Wrong time stamp length')
-            return
+        else:
+            self._dump_raw_data(err_flag=False,
+                                events=events,
+                                timestamps=timestamps,
+                                trial_data=trial_data)
 
         # process raw to extract features
         trial_feat = self.model.extract_feature(self.extractor, trial_data)
         # raw to epochs
+        events = self._process_stim_order(events)
         epochs = Model.raw2epoch(trial_feat, timestamps=timestamps, events=events)
         # making decision
         scores = self.model.decision_function(epochs)
         result_index, p = self.decision_logic(scores, events=events)
 
+        self._dump_decisions(scores, p)
         print(result_index, p)
 
         # stop conditions
@@ -272,6 +259,45 @@ class TestingController(Controller):
         result_char = utils.index2char(result)
         with open(self._log_path, 'a') as f:
             f.write('%s %s %d\n' % (self.stim_string[self.char_cnt], result_char, self.trial_cnt))
+
+    @staticmethod
+    def _process_stim_order(events):
+        # process events, list to 2d array
+        events = np.array([events])
+        if cfg.exp_config.bidir:  # only need one part
+            events = events[..., 0]
+        return events
+
+    def _dump_raw_data(self, err_flag, events, timestamps, trial_data):
+        dump_obj = {'timestamps': timestamps,
+                    'events': events,
+                    'data': trial_data,
+                    'error': err_flag,
+                    'trial_cnt': self.trial_cnt}
+        with open(self._online_dump_pkl, 'ab') as f:
+            pickle.dump(dump_obj, f)
+
+    def _dump_decisions(self, decision_value, likelihood):
+        # dump scores and p
+        with open(self._online_dump_pkl, 'ab') as f:
+            pickle.dump({'decision_values': decision_value,
+                         'likelihood': likelihood}, f)
+
+    def _data_check(self, events, timestamps, trial_data):
+        err_flag = False
+        if timestamps[-1] + cfg.amp_info.samplerate * cfg.off_config.end > trial_data.shape[1]:
+            self.trial_cnt -= 1
+            self._q_result.put(-1)
+            print('Wrong data length, continue')
+            err_flag = True
+
+        if len(timestamps) != len(events):
+            self.trial_cnt -= 1
+            self._q_result.put(-1)
+            print('Wrong time stamp length, continue')
+            err_flag = True
+        if err_flag:
+            raise ValueError
 
     def itr(self):
         p = np.mean(list(map(lambda a, b: float(a == b), self.stim_string, self.result_buffer)))
