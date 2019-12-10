@@ -1,14 +1,15 @@
 import os
 from datetime import datetime
 
-import numpy as np
-from mne.preprocessing.xdawn import _XdawnTransformer
-from mne.decoding import Vectorizer
-from scipy import signal
 import joblib
+import numpy as np
+from mne.decoding import Vectorizer
+from mne.preprocessing.xdawn import _XdawnTransformer
+from scipy import signal
+from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.linear_model import LogisticRegression
-from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
 
 from Offline import utils
 from config import cfg
@@ -52,6 +53,41 @@ class FeatExtractor:
         return erp
 
 
+class ChannelScaler(BaseEstimator, TransformerMixin):
+    def __init__(self, norm_method='channel'):
+        self.channel_mean_ = None
+        self.channel_std_ = None
+        self.norm_method = norm_method.lower()
+        if self.norm_method not in ['channel', 'dim']:
+            raise KeyError('Unsupported normalization method')
+        if self.norm_method == 'channel':
+            self.norm_axis = (0, 2)
+        elif self.norm_method == 'dim':
+            self.norm_axis = 0
+
+    def fit(self, X, y=None):
+        '''
+
+        :param X: 3d array with shape (n_epochs, n_channels, n_times)
+        :param y:
+        :return:
+        '''
+        self.channel_mean_ = np.mean(X, axis=self.norm_axis, keepdims=True)
+        self.channel_std_ = np.std(X, axis=self.norm_axis, keepdims=True)
+        return self
+
+    def transform(self, X, y=None):
+        X = X.copy()
+        X -= self.channel_mean_
+        X /= self.channel_std_
+        return X
+
+    def fit_transform(self, X, y=None, **fit_params):
+        self.fit(X)
+        X = self.transform(X)
+        return X
+
+
 class Model:
     def __init__(self, subject=None, date=None, mode='train', **kwargs):
         if subject is None:
@@ -80,8 +116,8 @@ class Model:
             n_components = kwargs.pop('n_components', 3)
             self.__cls = make_pipeline(
                 _XdawnTransformer(n_components=n_components),
+                ChannelScaler(),
                 Vectorizer(),
-                StandardScaler(),
                 LogisticRegression(C=C, class_weight='balanced', solver='liblinear', multi_class='ovr')
             )
 
