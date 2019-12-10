@@ -75,7 +75,7 @@ def _train(X_train, y_train, select, **kwargs):
     # select n channels
     train_x = X_train[:, model.ch_ind]
     # fit
-    model.fit(train_x, y_train)
+    model.fit(train_x, y_train, verbose='WARNING')
     return model
 
 

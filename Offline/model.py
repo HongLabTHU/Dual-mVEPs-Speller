@@ -4,6 +4,7 @@ from datetime import datetime
 import numpy as np
 from mne.preprocessing.xdawn import _XdawnTransformer
 from mne.decoding import Vectorizer
+from mne import verbose
 from scipy import signal
 import joblib
 from sklearn.linear_model import LogisticRegression
@@ -95,7 +96,8 @@ class Model:
         self._ch_ind = value
         self.data_dict['ind_ch_scores'] = value
 
-    def fit(self, X, y):
+    @verbose
+    def fit(self, X, y, verbose=None):
         """
         Fit model with labeled data
         :param X: epoch data (n_epoch, n_chan, n_times)
