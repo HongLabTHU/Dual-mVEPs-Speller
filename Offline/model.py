@@ -54,9 +54,16 @@ class FeatExtractor:
 
 
 class ChannelScaler(BaseEstimator, TransformerMixin):
-    def __init__(self):
+    def __init__(self, norm_method='channel'):
         self.channel_mean_ = None
         self.channel_std_ = None
+        self.norm_method = norm_method.lower()
+        if self.norm_method not in ['channel', 'dim']:
+            raise KeyError('Unsupported normalization method')
+        if self.norm_method == 'channel':
+            self.norm_axis = (0, 2)
+        elif self.norm_method == 'dim':
+            self.norm_axis = 0
 
     def fit(self, X, y=None):
         '''
@@ -65,8 +72,8 @@ class ChannelScaler(BaseEstimator, TransformerMixin):
         :param y:
         :return:
         '''
-        self.channel_mean_ = np.mean(X, axis=(0, 2), keepdims=True)
-        self.channel_std_ = np.std(X, axis=(0, 2), keepdims=True)
+        self.channel_mean_ = np.mean(X, axis=self.norm_axis, keepdims=True)
+        self.channel_std_ = np.std(X, axis=self.norm_axis, keepdims=True)
         return self
 
     def transform(self, X, y=None):
