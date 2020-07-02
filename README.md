@@ -1,6 +1,6 @@
 ## Dual-directional visual motion based BCI Speller
 Code for uni- and dual-directional visual motion based BCI spellers, as described in the original paper: 
-[*Doubling the speed of N200 speller by dual-directional motion Encoding*](). 
+[*Doubling the speed of N200 speller by dual-directional motion Encoding*](https://ieeexplore.ieee.org/document/9127797). 
 Note that the original code is in the release [Version 0.1.1](../../releases/tag/0.1.1). 
 
 ### Quickstart
@@ -20,7 +20,7 @@ To test the *[Psychopy](https://www.psychopy.org/)* setup, run *OnlineSystem.py*
     python3 OnlineSystem.py --cfg ./tests/test_stimulator.yml
 ```
 
-To reproduce the major results reported in the paper, download the data from this [link](https://drive.google.com/open?id=1KhsIW-D_Rl6g0l3u2FXpzeZfSxK-fmJI) (Note that the link will be publicly available at the time of publication), decompress and put it under the data directory. Then
+To reproduce the major results reported in the paper, download the data from this [link](https://drive.google.com/open?id=1KhsIW-D_Rl6g0l3u2FXpzeZfSxK-fmJI), decompress and put it under the data directory. Then
 simply run the notebook *figs_offline.ipynb*.
 
 If you would like to run your own online experiments, you could either use *NeusanW (Neuracle Inc.)* 
