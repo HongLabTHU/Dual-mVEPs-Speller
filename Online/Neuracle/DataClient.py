@@ -65,6 +65,7 @@ class Neuracle(AmpDataClient):
         """
         self.lock.acquire()
         raw_data = self.buffer.copy()
+        self.buffer.clear()
         self.lock.release()
         total_data = b''.join(raw_data)
         byte_data = bytearray(total_data)
@@ -73,5 +74,4 @@ class Neuracle(AmpDataClient):
         data = np.frombuffer(byte_data, dtype='<f')
         data = np.reshape(data, (-1, self.n_channel))
         timestamps = np.nonzero(data[:, -1])[0].tolist()
-        self.buffer.clear()
         return timestamps, data[:, :-1].T
