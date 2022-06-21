@@ -183,7 +183,7 @@ class Dataset:
         if loaddata:
             self.load_all()
         else:
-            self.data, self.ch_names, self.timestamp, self.montage_indices, self.events_backup = [None] * 5
+            self.data, self.ch_names, self.timestamp, self.montage_indices, self.events_backup = [None for _ in range(5)]
 
     def load_all(self):
         # load data and timestamps
